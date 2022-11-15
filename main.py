@@ -50,7 +50,7 @@ class Network:
             # print(b, w, np.dot(w, a))
             print(np.dot(w, a))
             # print(self.norm_func(np.dot(w, a) + b))
-            r[i] = self.norm_func(np.dot(w, a) + b)[0]
+            r[i] = self.norm_func((np.dot(w, a) + b)[0])
         return r
 
     def get_output_layer_weights(self, a):
@@ -62,6 +62,15 @@ class Network:
             # print(self.norm_func(np.dot(w, a) + b))
             r[i] = self.norm_func((np.dot(w, a) + b)[0])
         return r
+
+    def get_error(self, output, number):
+        num_vec = numpy.zeros(output.size)
+        num_vec[number] = 1.
+        result = (output - num_vec)
+        # print(result)
+        result *= result
+        # print(result)
+        return np.sum(result)
 
 
 neurons = 20
@@ -81,8 +90,12 @@ n = Network(neurons_shape, neurons_biases, output_shape, output_biases, "expit")
 
 r = n.get_first_layer_weights(train_images_float[0].flat[:])
 o = n.get_output_layer_weights(r)
+e = n.get_error(o, train_numbers[0])
 
-print(o)
+print()
+print(e)
+#
+# print(o)
 
 # for v in r:
 #     print(v)
