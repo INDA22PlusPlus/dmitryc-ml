@@ -39,7 +39,7 @@ class NetworkData:
         self.avg_error = 0
 
     def get_first_layer_weights(self, a):
-        r = numpy.zeros(20)
+        r = numpy.zeros(self.neurons_weights.shape[1])
         # print(a, self.neurons_weights[0], self.neurons_biases)
         for i, (b, w) in enumerate(zip(self.neurons_biases[0], self.neurons_weights[0])):
             # print(a, w)
@@ -49,8 +49,9 @@ class NetworkData:
             r[i] = self.norm_func((np.dot(w, a) + b)[0])
         return r
 
+    # TODO: Norm the output
     def get_output_layer_weights(self, a):
-        r = numpy.zeros(10)
+        r = numpy.zeros(self.output_weights.shape[0])
         for i, (b, w) in enumerate(zip(self.output_biases, self.output_weights)):
             # print(a, w)
             # print(b, w, np.dot(w, a))
@@ -94,10 +95,18 @@ class NetworkData:
         # dif_arr_o.reshape(self.output_weights.shape)
 
         self.output_weights += dif_arr_o
+
     def get_mutated_copy(self, mutation_range):
         ncopy = copy.deepcopy(self)
         ncopy.mutate(mutation_range)
         return ncopy
+
+    def compute_number(self, image):
+        r = self.get_first_layer_weights(image.flat[:])
+        o = self.get_output_layer_weights(r)
+
+        # print(o)
+        return np.where(o == o.max())
 
 
 class Network:
@@ -151,7 +160,8 @@ class Network:
             for _ in range(best_multiple * (6 - i) - 1):
                 new.append(net.get_mutated_copy(mutation_range))
 
-        # print(len(new))
+        # [print({net.avg_error}, end=" ") for net in best]
+        # print()
 
         return new
 
@@ -159,8 +169,9 @@ class Network:
         networks = [NetworkData(*self.data_params) for _ in range(population)]
         # print(networks)
         for gen in range(gens):
+            print(gen, end=" ")
             for i, network in enumerate(networks):
-                networks[i].set_avg_error(self.test_images[:data_points], self.train_numbers)
+                networks[i].set_avg_error(self.train_images[:data_points], self.train_numbers)
                 # print(networks[i].avg_error)
 
             # TODO: Decide where this should be
@@ -169,7 +180,21 @@ class Network:
 
             # [print(net.avg_error, end=" ") for net in networks]
             # print()
+        self.data = networks[0]
 
+    def compare_to_test(self, range):
+        right = 0
+        wrong = 0
+
+        f, t = range
+        for image, num in zip(self.test_images[f:t], self.test_numbers):
+            comp_num = self.data.compute_number(image)
+            if comp_num == num:
+                right += 1
+            else:
+                wrong += 1
+
+        return right, wrong
 
 
 # neurons = 20
@@ -183,9 +208,17 @@ class Network:
 # output_biases = numpy.zeros(output_shape)
 # output_biases.fill(-8)
 
-n = Network(neuron_layers_shape=(1, 20), neuron_bias=-52, outputs=10, output_bias=-8, norm_func_name="expit")
-# print(n.get_average_error(100))
+n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
+
+r, w = n.compare_to_test((0, 100))
+print(n.data.avg_error)
+print(f"Right: {r}  -   Wrong: {w}")
+
 n.train(100, 100, 100, 0.2)
+
+r, w = n.compare_to_test((0, 100))
+print(n.data.avg_error)
+print(f"Right: {r}  -   Wrong: {w}")
 
 # print(train_images_float[0].flat[:].shape)
 
