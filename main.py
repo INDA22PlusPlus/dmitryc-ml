@@ -1,3 +1,4 @@
+import copy
 import gzip
 import pickle
 import sys
@@ -80,8 +81,23 @@ class NetworkData:
 
         return np.average(error_vec)
 
+    # TODO: NEEDS FIX
     def mutate(self, mutation_range):
-        pass
+        dif_arr_n = numpy.random.uniform(-mutation_range, mutation_range, self.neurons_weights.size)\
+            .reshape(self.neurons_weights.shape)
+        # dif_arr_n.reshape(self.neurons_weights.shape)
+
+        self.neurons_weights += dif_arr_n
+
+        dif_arr_o = numpy.random.uniform(-mutation_range, mutation_range, self.output_weights.size)\
+            .reshape(self.output_weights.shape)
+        # dif_arr_o.reshape(self.output_weights.shape)
+
+        self.output_weights += dif_arr_o
+    def get_mutated_copy(self, mutation_range):
+        ncopy = copy.deepcopy(self)
+        ncopy.mutate(mutation_range)
+        return ncopy
 
 
 class Network:
@@ -125,16 +141,19 @@ class Network:
         return (train_images, train_numbers) , (test_images, test_numbers)
 
     def evolve(self, networks, population, mutation_range):
-        best = networks[:population // 20]
-        new = []
+        best_multiple = population // 20
+        best = networks[:best_multiple]
+        new = copy.deepcopy(best)
         [print({net.avg_error}, end=" ") for net in best]
         print()
-        # for pair in best:
-        #     for i, weight in enumerate(pair[0].neurons_weights):
-        #         new.append()
+        for i, net in enumerate(best):
+            # 5 - 30 25 20 15 10
+            for _ in range(best_multiple * (6 - i) - 1):
+                new.append(net.get_mutated_copy(mutation_range))
 
+        # print(len(new))
 
-        return networks
+        return new
 
     def train(self, population, gens, data_points, mutation_range):
         networks = [NetworkData(*self.data_params) for _ in range(population)]
@@ -143,10 +162,12 @@ class Network:
             for i, network in enumerate(networks):
                 networks[i].set_avg_error(self.test_images[:data_points], self.train_numbers)
                 # print(networks[i].avg_error)
+
+            # TODO: Decide where this should be
             networks.sort(key=lambda x: x.avg_error)
             networks = self.evolve(networks, population, mutation_range)
 
-            # print(networks)
+            # [print(net.avg_error, end=" ") for net in networks]
             # print()
 
 
