@@ -1,6 +1,7 @@
 import gzip
 import pickle
 import sys
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.special import expit
@@ -18,18 +19,14 @@ from matplotlib import pyplot
 # weights = numpy.random.rand(*t)
 # print(weights.shape)
 
-
-class Network:
+class NetworkData:
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
-                 outputs: int, output_bias: int,
-                 norm_func_name: str = "expit", data=None):
-        self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, norm_func_name)
+                 outputs: int, output_bias: int, nodes: int, norm_func):
+        self.norm_func = norm_func
 
-        if data is None:
-            data = self.get_data_normalized()
-        self.data = (self.train_images, self.train_numbers), (self.test_images, self.test_numbers) = data
+        # self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, nodes)
 
-        neurons_full_shape = (*neuron_layers_shape, self.train_images[0].size)
+        neurons_full_shape = (*neuron_layers_shape, nodes)
         output_full_shape = (outputs, neuron_layers_shape[1])
         # print(neurons_full_shape, output_full_shape)
 
@@ -37,10 +34,73 @@ class Network:
         self.neurons_biases = np.full(neurons_full_shape, neuron_bias)
         self.output_weights = numpy.random.rand(*output_full_shape)
         self.output_biases = np.full(output_full_shape, output_bias)
+
+        self.avg_error = 0
+
+    def get_first_layer_weights(self, a):
+        r = numpy.zeros(20)
+        # print(a, self.neurons_weights[0], self.neurons_biases)
+        for i, (b, w) in enumerate(zip(self.neurons_biases[0], self.neurons_weights[0])):
+            # print(a, w)
+            # print(b, w, np.dot(w, a))
+            # print(np.dot(w, a))
+            # print(self.norm_func(np.dot(w, a) + b))
+            r[i] = self.norm_func((np.dot(w, a) + b)[0])
+        return r
+
+    def get_output_layer_weights(self, a):
+        r = numpy.zeros(10)
+        for i, (b, w) in enumerate(zip(self.output_biases, self.output_weights)):
+            # print(a, w)
+            # print(b, w, np.dot(w, a))
+            # print(np.dot(w, a))
+            # print(self.norm_func(np.dot(w, a) + b))
+            r[i] = self.norm_func((np.dot(w, a) + b)[0])
+        return r
+
+    def set_avg_error(self, data_points, numbers):
+        self.avg_error = self.get_avg_error(data_points, numbers)
+
+    def get_error(self, output, number):
+        num_vec = numpy.zeros(output.size)
+        num_vec[number] = 1.
+        result = (output - num_vec)
+        # print(result)
+        result *= result
+        # print(result)
+        return np.sum(result)
+
+    def get_avg_error(self, data_points, numbers):
+        # print(data_points.)
+        error_vec = numpy.zeros(data_points.shape[0])
+        for i, image in enumerate(data_points):     # self.train_images[:data_points]
+            r = self.get_first_layer_weights(image.flat[:])
+            o = self.get_output_layer_weights(r)
+            error_vec[i] = self.get_error(o, numbers[i])     # self.train_numbers
+
+        return np.average(error_vec)
+
+    def mutate(self, mutation_range):
+        pass
+
+
+class Network:
+    def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
+                 outputs: int, output_bias: int,
+                 norm_func_name: str = "expit"):
+        # self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, norm_func_name)
+
+        self.image_data = (self.train_images, self.train_numbers), (self.test_images, self.test_numbers) = \
+            self.get_data_normalized()
+
         self.norm_func = {
             "expit": expit,
         }.get(norm_func_name.lower().strip(), "expit")
 
+        self.data_params = (neuron_layers_shape, neuron_bias, outputs, output_bias,
+                            self.test_images[0].size, self.norm_func)
+
+        self.data = NetworkData(*self.data_params)
 
     def get_data_from_file(self):
         f = gzip.open('data/mnist.pkl.gz', 'rb')
@@ -64,52 +124,29 @@ class Network:
 
         return (train_images, train_numbers) , (test_images, test_numbers)
 
-    def get_first_layer_weights(self, a):
-        r = numpy.zeros(20)
-        # print(a, self.neurons_weights[0], self.neurons_biases)
-        for i, (b, w) in enumerate(zip(self.neurons_biases[0], self.neurons_weights[0])):
-            # print(a, w)
-            # print(b, w, np.dot(w, a))
-            # print(np.dot(w, a))
-            # print(self.norm_func(np.dot(w, a) + b))
-            r[i] = self.norm_func((np.dot(w, a) + b)[0])
-        return r
+    def evolve(self, networks, population, mutation_range):
+        best = networks[:population // 20]
+        new = []
+        [print({net.avg_error}, end=" ") for net in best]
+        print()
+        # for pair in best:
+        #     for i, weight in enumerate(pair[0].neurons_weights):
+        #         new.append()
 
-    def get_output_layer_weights(self, a):
-        r = numpy.zeros(10)
-        for i, (b, w) in enumerate(zip(self.output_biases, self.output_weights)):
-            # print(a, w)
-            # print(b, w, np.dot(w, a))
-            # print(np.dot(w, a))
-            # print(self.norm_func(np.dot(w, a) + b))
-            r[i] = self.norm_func((np.dot(w, a) + b)[0])
-        return r
 
-    def get_error(self, output, number):
-        num_vec = numpy.zeros(output.size)
-        num_vec[number] = 1.
-        result = (output - num_vec)
-        # print(result)
-        result *= result
-        # print(result)
-        return np.sum(result)
+        return networks
 
-    def get_average_error(self, data_points=60000):
-        error_vec = numpy.zeros(data_points)
-        for i, image in enumerate(self.train_images[:data_points]):
-            r = self.get_first_layer_weights(image.flat[:])
-            o = self.get_output_layer_weights(r)
-            error_vec[i] = self.get_error(o, self.train_numbers[i])
-
-        return np.average(error_vec)
-
-    def train(self, population, gens, weight_range):
-        networks = [[Network(*self.init_values, self.data), 0] for _ in range(population)]
+    def train(self, population, gens, data_points, mutation_range):
+        networks = [NetworkData(*self.data_params) for _ in range(population)]
         # print(networks)
         for gen in range(gens):
-            for i, (network, error) in enumerate(networks):
-                networks[i][1] = network.get_average_error(100)
-                print(networks[i][1])
+            for i, network in enumerate(networks):
+                networks[i].set_avg_error(self.test_images[:data_points], self.train_numbers)
+                # print(networks[i].avg_error)
+            networks.sort(key=lambda x: x.avg_error)
+            networks = self.evolve(networks, population, mutation_range)
+
+            # print(networks)
             # print()
 
 
@@ -127,7 +164,7 @@ class Network:
 
 n = Network(neuron_layers_shape=(1, 20), neuron_bias=-52, outputs=10, output_bias=-8, norm_func_name="expit")
 # print(n.get_average_error(100))
-n.train(100, 100, 0.2)
+n.train(100, 100, 100, 0.2)
 
 # print(train_images_float[0].flat[:].shape)
 
