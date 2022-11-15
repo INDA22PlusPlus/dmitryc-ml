@@ -22,8 +22,12 @@ from matplotlib import pyplot
 class Network:
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
                  outputs: int, output_bias: int,
-                 norm_func_name: str = "expit"):
-        (self.train_images, self.train_numbers), (self.test_images, self.test_numbers) = self.get_data_normalized()
+                 norm_func_name: str = "expit", data=None):
+        self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, norm_func_name)
+
+        if data is None:
+            data = self.get_data_normalized()
+        self.data = (self.train_images, self.train_numbers), (self.test_images, self.test_numbers) = data
 
         neurons_full_shape = (*neuron_layers_shape, self.train_images[0].size)
         output_full_shape = (outputs, neuron_layers_shape[1])
@@ -90,7 +94,7 @@ class Network:
         # print(result)
         return np.sum(result)
 
-    def get_average_error(self, data_points):
+    def get_average_error(self, data_points=60000):
         error_vec = numpy.zeros(data_points)
         for i, image in enumerate(self.train_images[:data_points]):
             r = self.get_first_layer_weights(image.flat[:])
@@ -98,6 +102,16 @@ class Network:
             error_vec[i] = self.get_error(o, self.train_numbers[i])
 
         return np.average(error_vec)
+
+    def train(self, population, gens, weight_range):
+        networks = [[Network(*self.init_values, self.data), 0] for _ in range(population)]
+        # print(networks)
+        for gen in range(gens):
+            for i, (network, error) in enumerate(networks):
+                networks[i][1] = network.get_average_error(100)
+                print(networks[i][1])
+            # print()
+
 
 
 # neurons = 20
@@ -112,7 +126,8 @@ class Network:
 # output_biases.fill(-8)
 
 n = Network(neuron_layers_shape=(1, 20), neuron_bias=-52, outputs=10, output_bias=-8, norm_func_name="expit")
-print(n.get_average_error(100))
+# print(n.get_average_error(100))
+n.train(100, 100, 0.2)
 
 # print(train_images_float[0].flat[:].shape)
 
