@@ -25,11 +25,11 @@ class NetworkData:
                  outputs: int, output_bias: int, nodes: int, norm_func):
         self.norm_func = norm_func
 
-        # self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, nodes)
-
         neurons_full_shape = (*neuron_layers_shape, nodes)
         output_full_shape = (outputs, neuron_layers_shape[1])
         # print(neurons_full_shape, output_full_shape)
+        self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, nodes,
+                            neurons_full_shape, output_full_shape)
 
         self.neurons_weights = numpy.random.rand(*neurons_full_shape)
         self.neurons_biases = np.full(neurons_full_shape, neuron_bias)
@@ -37,6 +37,10 @@ class NetworkData:
         self.output_biases = np.full(output_full_shape, output_bias)
 
         self.avg_error = 0
+
+    def regenerate_weights(self):
+        self.neurons_weights = numpy.random.rand(*self.init_values[-2])
+        self.output_weights = numpy.random.rand(*self.init_values[-1])
 
     def get_first_layer_weights(self, a):
         r = numpy.zeros(self.neurons_weights.shape[1])
@@ -207,12 +211,14 @@ class Network:
 # output_shape = (outputs, neurons)
 # output_biases = numpy.zeros(output_shape)
 # output_biases.fill(-8)
-
 n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
 
-r, w = n.compare_to_test((0, 100))
-print(n.data.avg_error)
-print(f"Right: {r}  -   Wrong: {w}")
+for _ in range(100):
+    r, w = n.compare_to_test((0, 100))
+    print(n.data.avg_error)
+    print(f"Right: {r}  -   Wrong: {w}")
+
+    n.data.regenerate_weights()
 
 n.train(100, 100, 100, 0.2)
 
