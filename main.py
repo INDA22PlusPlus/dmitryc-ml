@@ -21,8 +21,11 @@ from keras.datasets import mnist
 import numpy
 from matplotlib import pyplot
 
+# @njit
+def normalize(data, divider=255):
+    return data * (1 / divider)
 
-@njit
+@njit(parallel=True)
 def get_error(output, number):
     num_vec = numpy.zeros(output.size)
     num_vec[number] = 1.
@@ -32,35 +35,43 @@ def get_error(output, number):
     # print(result)
     return np.sum(result)
 
-@njit
+
+# @njit('float64[:](float64[:,::1], float64[::1])')
+@njit(parallel=True)
 def get_output_layer_weights(a, output_weights, output_biases):
-    r = numpy.zeros(output_weights.shape[0])
-    for i, (b, w) in enumerate(zip(output_biases, output_weights)):
-        # print(a, w)
-        # print(b, w, np.dot(w, a))
-        # print(np.dot(w, a))
-        # print(self.norm_func(np.dot(w, a) + b))
-        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+    # r = numpy.zeros(output_weights.shape[0])
+    # for i, (b, w) in enumerate(zip(output_biases, output_weights)):
+    #     # print(a, w)
+    #     # print(b, w, np.dot(w, a))
+    #     # print(np.dot(w, a))
+    #     # print(self.norm_func(np.dot(w, a) + b))
+    #     r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+
+    # r = np.dot(output_weights, a) + output_biases
+    r = get_layer_weights(a, output_weights, output_biases)
+
     s = r.sum()
     r /= s
     return r
 
 
-@njit
+@njit(parallel=True)
 # @profile
-def get_first_layer_weights(a, neuron_weights, neuron_biases):
-    r = numpy.zeros(neuron_weights.shape[1])
-    # sigmoid = lambda x: 1 / (1 + np.exp(-x))
-    # print(a, self.neurons_weights[0], self.neurons_biases)
-    for i, (b, w) in enumerate(zip(neuron_biases[0], neuron_weights[0])):
-        # print(a, w)
-        # print(b, w, np.dot(w, a))
-        # print(np.dot(w, a))
-        # print(self.norm_func(np.dot(w, a) + b))
-        # sigmoid = lambda x: 1 / (1 + np.exp(-x))
-        # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
-        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
-    return r
+def get_layer_weights(a, neuron_weights, neuron_biases):
+    # r = numpy.zeros(neuron_weights.shape[1])
+    # # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    # # print(a, self.neurons_weights[0], self.neurons_biases)
+    # for i, (b, w) in enumerate(zip(neuron_biases[0], neuron_weights[0])):
+    #     # print(a, w)
+    #     # print(b, w, np.dot(w, a))
+    #     # print(np.dot(w, a))
+    #     # print(self.norm_func(np.dot(w, a) + b))
+    #     # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    #     # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+    #     # d = np.dot(w, a)
+    #     r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b[i])))
+    # dot = np.dot(neuron_weights, a)
+    return 1 / (1 + np.exp(-(np.dot(neuron_weights, a) + neuron_biases)))
 
 
 class NetworkData:
@@ -75,9 +86,9 @@ class NetworkData:
                             neurons_full_shape, output_full_shape)
 
         self.neurons_weights = numpy.random.rand(*neurons_full_shape)
-        self.neurons_biases = np.full(neurons_full_shape, neuron_bias)
+        self.neurons_biases = np.full(neuron_layers_shape, neuron_bias)
         self.output_weights = numpy.random.rand(*output_full_shape)
-        self.output_biases = np.full(output_full_shape, output_bias)
+        self.output_biases = np.full(outputs, output_bias)
 
         self.avg_error = 0
 
@@ -137,9 +148,9 @@ class NetworkData:
         error_vec = numpy.zeros(data_points.shape[0])
         for i, image in enumerate(data_points):  # self.train_images[:data_points]
             # r = self.get_first_layer_weights(image.flat[:])
-            r = get_first_layer_weights(image.flat[:].astype(numpy.double), self.neurons_weights,
-                                        self.neurons_biases)
-            o = get_output_layer_weights(r.astype(numpy.double), self.output_weights,
+            r = get_layer_weights(image.flat[:], self.neurons_weights[0],
+                                  self.neurons_biases[0])
+            o = get_output_layer_weights(r, self.output_weights,
                                          self.output_biases)
             # print(o)
             error_vec[i] = get_error(o, numbers[i])  # self.train_numbers
@@ -167,17 +178,17 @@ class NetworkData:
 
     # @profile
     def compute_number(self, image):
-        r = get_first_layer_weights(image.flat[:].astype(numpy.double), self.neurons_weights,
-                                    self.neurons_biases)
-        o = get_output_layer_weights(r.astype(numpy.double), self.output_weights,
+        r = get_layer_weights(image.flat[:], self.neurons_weights[0],
+                              self.neurons_biases[0])
+        o = get_output_layer_weights(r, self.output_weights,
                                      self.output_biases)
 
         # print(o)
-        return np.amax(o)
+        return np.argmax(o)
 
 
 class Network:
-    @profile
+    # @profile
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
                  outputs: int, output_bias: int,
                  norm_func_name: str = "expit"):
@@ -207,15 +218,15 @@ class Network:
         # loading the dataset
         return data
 
-    def normalize(self, data, divider=255):
-        return data.astype(numpy.float32) * (1 / divider)
-
-    @profile
+    # @profile
     def get_data_normalized(self):
         (train_images, train_numbers), (test_images, test_numbers) = mnist.load_data()
 
-        train_images = self.normalize(train_images)
-        test_images = self.normalize(test_images)
+        trni = train_images.astype(numpy.double)
+        tsti = test_images.astype(numpy.double)
+
+        train_images = normalize(trni)
+        test_images = normalize(tsti)
 
         return (train_images, train_numbers), (test_images, test_numbers)
 
