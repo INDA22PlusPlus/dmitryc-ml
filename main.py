@@ -292,7 +292,7 @@ class Network:
 time_before = time.time()
 
 n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-n.load_weights("net7")
+n.load_weights("net10")
 # data_start = copy.deepcopy(n.data)
 
 # for _ in range(100):
@@ -305,10 +305,10 @@ n.load_weights("net7")
 print("Network init")
 
 # Generating better network doesn't matter, but might as well do it quickly
-# n.train(100, 2000, (0, 1000), 0.2, 100)
+n.train(100, 200, (1000, 1200), 0.2, 100)
 # data_end = copy.deepcopy(n.data)
 
-r, w = n.compare_to_test((0, 60000), False)
+r, w = n.compare_to_test((1000, 1200), False)
 print(n.data.avg_error)
 print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TRAIN data)")
 
@@ -321,7 +321,7 @@ print(f"Total time: {time.time() - time_before:.2}s")
 # net1 - 27%
 # net2 - ~20?
 # net3 -
-# n.save_weights("net7")
+n.save_weights("net11")
 
 # n.data = data_start
 # r, w = n.compare_to_test((0, 10000))
