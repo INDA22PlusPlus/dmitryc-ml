@@ -31,8 +31,22 @@ from matplotlib import pyplot
 # def sigmoid(x):
 #     return 1 / (1 + np.exp(-x))
 
-# @profile
 @njit
+def get_output_layer_weights(a, output_weights, output_biases):
+    r = numpy.zeros(output_weights.shape[0])
+    for i, (b, w) in enumerate(zip(output_biases, output_weights)):
+        # print(a, w)
+        # print(b, w, np.dot(w, a))
+        # print(np.dot(w, a))
+        # print(self.norm_func(np.dot(w, a) + b))
+        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+    s = r.sum()
+    r /= s
+    return r
+
+
+@njit
+# @profile
 def get_first_layer_weights(a, neuron_weights, neuron_biases):
     r = numpy.zeros(neuron_weights.shape[1])
     # sigmoid = lambda x: 1 / (1 + np.exp(-x))
@@ -116,14 +130,16 @@ class NetworkData:
         # print(result)
         return np.sum(result)
 
-    # @profile
+    @profile
     def get_avg_error(self, data_points, numbers):
         # print(data_points.)
         error_vec = numpy.zeros(data_points.shape[0])
         for i, image in enumerate(data_points):  # self.train_images[:data_points]
             # r = self.get_first_layer_weights(image.flat[:])
-            r = get_first_layer_weights(image.flat[:].astype(numpy.double), self.neurons_weights, self.neurons_biases)
-            o = self.get_output_layer_weights(r)
+            r = get_first_layer_weights(image.flat[:].astype(numpy.double), self.neurons_weights,
+                                        self.neurons_biases)
+            o = get_output_layer_weights(r.astype(numpy.double), self.output_weights,
+                                         self.output_biases)
             # print(o)
             error_vec[i] = self.get_error(o, numbers[i])  # self.train_numbers
 
