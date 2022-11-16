@@ -13,23 +13,24 @@ import numpy as np
 from line_profiler_pycharm import profile
 from numba import njit
 from scipy.special import expit
+import logging, os
+logging.disable(logging.WARNING)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+from keras.datasets import mnist
 
 import numpy
 from matplotlib import pyplot
 
 
-# train_images_float = train_images.astype(numpy.float32)
-# train_images_float *= 1/255
-# print(train_images_float[0])
-# (tx, ty) = train_images_float.shape
-
-
-# t = (1, 20, train_images_float[0].size)
-# weights = numpy.random.rand(*t)
-# print(weights.shape)
-
-# def sigmoid(x):
-#     return 1 / (1 + np.exp(-x))
+@njit
+def get_error(output, number):
+    num_vec = numpy.zeros(output.size)
+    num_vec[number] = 1.
+    result = (output - num_vec)
+    # print(result)
+    result *= result
+    # print(result)
+    return np.sum(result)
 
 @njit
 def get_output_layer_weights(a, output_weights, output_biases):
@@ -130,7 +131,7 @@ class NetworkData:
         # print(result)
         return np.sum(result)
 
-    @profile
+    # @profile
     def get_avg_error(self, data_points, numbers):
         # print(data_points.)
         error_vec = numpy.zeros(data_points.shape[0])
@@ -141,7 +142,7 @@ class NetworkData:
             o = get_output_layer_weights(r.astype(numpy.double), self.output_weights,
                                          self.output_biases)
             # print(o)
-            error_vec[i] = self.get_error(o, numbers[i])  # self.train_numbers
+            error_vec[i] = get_error(o, numbers[i])  # self.train_numbers
 
         return np.average(error_vec)
 
@@ -164,15 +165,19 @@ class NetworkData:
         ncopy.mutate(learning_rate)
         return ncopy
 
+    # @profile
     def compute_number(self, image):
-        r = self.get_first_layer_weights(image.flat[:])
-        o = self.get_output_layer_weights(r)
+        r = get_first_layer_weights(image.flat[:].astype(numpy.double), self.neurons_weights,
+                                    self.neurons_biases)
+        o = get_output_layer_weights(r.astype(numpy.double), self.output_weights,
+                                     self.output_biases)
 
         # print(o)
-        return np.where(o == o.max())
+        return np.amax(o)
 
 
 class Network:
+    @profile
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
                  outputs: int, output_bias: int,
                  norm_func_name: str = "expit"):
@@ -190,6 +195,7 @@ class Network:
 
         self.data = NetworkData(*self.data_params)
 
+    @profile
     def get_data_from_file(self):
         f = gzip.open('data/mnist.pkl.gz', 'rb')
         if sys.version_info < (3,):
@@ -204,8 +210,9 @@ class Network:
     def normalize(self, data, divider=255):
         return data.astype(numpy.float32) * (1 / divider)
 
+    @profile
     def get_data_normalized(self):
-        (train_images, train_numbers), (test_images, test_numbers) = self.get_data_from_file()
+        (train_images, train_numbers), (test_images, test_numbers) = mnist.load_data()
 
         train_images = self.normalize(train_images)
         test_images = self.normalize(test_images)
@@ -233,11 +240,11 @@ class Network:
         return learning_rate
 
     # @njit(parallel=True)
-    # @profile
+    @profile
     def train(self, population, gens, data_points, learning_rate, init_tests):
-        self.generate_better_random_net(init_tests)
+        # self.generate_better_random_net(init_tests)
 
-        print("Generated better random network")
+        # print("Generated better random network")
 
         r, w = self.compare_to_test((0, 10000), False)
         print(self.data.avg_error)
@@ -270,6 +277,7 @@ class Network:
             # print()
         self.data = networks[0]
 
+    # @profile
     def compare_to_test(self, in_range, test=True):
         right = 0
         wrong = 0
@@ -297,6 +305,9 @@ class Network:
             self.data.regenerate_weights()
         self.data = max(arr, key=lambda x: x[0])[1]
 
+        # print("Generated better random network")
+
+
     def save_weights(self, map_name="net"):
         cur_dir = os.path.dirname(__file__)
         # print(cur_dir)
@@ -322,89 +333,97 @@ class Network:
         output_weights = numpy.load(f"{full_path}/output_weights.npy")
         self.data.set_weights(neuron_weights, output_weights)
 
-# neurons = 20
-# layers = 1
-# neurons_shape = (layers, neurons, train_images_float[0].size)
-# neurons_biases = numpy.zeros(neurons_shape)
-# neurons_biases.fill(-52)
-#
-# outputs = 10
-# output_shape = (outputs, neurons)
-# output_biases = numpy.zeros(output_shape)
-# output_biases.fill(-8)
 
-time_before = time.time()
+@profile
+def main():
+    # neurons = 20
+    # layers = 1
+    # neurons_shape = (layers, neurons, train_images_float[0].size)
+    # neurons_biases = numpy.zeros(neurons_shape)
+    # neurons_biases.fill(-52)
+    #
+    # outputs = 10
+    # output_shape = (outputs, neurons)
+    # output_biases = numpy.zeros(output_shape)
+    # output_biases.fill(-8)
 
-n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-n.load_weights("net7")
-# data_start = copy.deepcopy(n.data)
+    time_before = time.time()
 
-# for _ in range(100):
-# r, w = n.compare_to_test((0, 100))
-# print(n.data.avg_error)
-# print(f"Right: {r}  -   Wrong: {w}")
+    n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
+    n.load_weights("net7")
+    # data_start = copy.deepcopy(n.data)
 
-# n.data.regenerate_weights()
+    # for _ in range(100):
+    # r, w = n.compare_to_test((0, 100))
+    # print(n.data.avg_error)
+    # print(f"Right: {r}  -   Wrong: {w}")
 
-print("Network init")
+    # n.data.regenerate_weights()
 
-# Generating better network doesn't matter, but might as well do it quickly
-data_points = (0, 100)
-n.train(100, 100, data_points, 0.2, 100)
-# data_end = copy.deepcopy(n.data)
+    print("Network init")
 
-r, w = n.compare_to_test(data_points, False)
-print(n.data.avg_error)
-print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TRAIN data)")
+    # Generating better network doesn't matter, but might as well do it quickly
+    data_points = (0, 100)
+    n.train(100, 100, data_points, 0.2, 100)
+    # data_end = copy.deepcopy(n.data)
 
-r, w = n.compare_to_test((0, 10000))
-print(n.data.avg_error)
-print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TEST data)")
+    r, w = n.compare_to_test(data_points, False)
+    print(n.data.avg_error)
+    print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TRAIN data)")
 
-print(f"Total time: {time.time() - time_before:.2}s")
+    r, w = n.compare_to_test((0, 10000))
+    print(n.data.avg_error)
+    print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TEST data)")
 
-# net1 - 27%
-# net2 - ~20?
-# net7 - 60% test, 80% training (91% on 100 first)
-# net12 - 53% test, 97% training (100), error - 0.045672393817552004
-# n.save_weights("net12")
+    print(f"Total time: {time.time() - time_before:.2}s")
 
-# n.data = data_start
-# r, w = n.compare_to_test((0, 10000))
-# print(n.data.avg_error)
-# print(f"Right: {r}  -   Wrong: {w}")
+    # net1 - 27%
+    # net2 - ~20?
+    # net7 - 60% test, 80% training (91% on 100 first)
+    # net12 - 53% test, 97% training (100), error - 0.045672393817552004
+    # n.save_weights("net12")
 
-# print(train_images_float[0].flat[:].shape)
+    # n.data = data_start
+    # r, w = n.compare_to_test((0, 10000))
+    # print(n.data.avg_error)
+    # print(f"Right: {r}  -   Wrong: {w}")
 
-# r = n.get_first_layer_weights(train_images_float[0].flat[:])
-# o = n.get_output_layer_weights(r)
-# e = n.get_error(o, train_numbers[0])
-#
-# print()
-# print(e)
+    # print(train_images_float[0].flat[:].shape)
 
-# print(o)
+    # r = n.get_first_layer_weights(train_images_float[0].flat[:])
+    # o = n.get_output_layer_weights(r)
+    # e = n.get_error(o, train_numbers[0])
+    #
+    # print()
+    # print(e)
 
-# for v in r:
-#     print(v)
+    # print(o)
 
-# print(output)
+    # for v in r:
+    #     print(v)
 
-# gens = 100
-# # for gen in range(gens):
-# for image in test_images[:100]:
-#
-#     pass
+    # print(output)
 
-# print(train_images.)
+    # gens = 100
+    # # for gen in range(gens):
+    # for image in test_images[:100]:
+    #
+    #     pass
 
-# printing the shapes of the vectors
-# print('X_train: ' + str(train_x.shape))
-# print('Y_train: ' + str(train_y.shape))
-# print('X_test:  ' + str(test_x.shape))
-# print('Y_test:  '  + str(test_y.shape))
+    # print(train_images.)
 
-# for i in range(9):
-#     pyplot.subplot(330 + 1 + i)
-#     pyplot.imshow(train_X[i], cmap=pyplot.get_cmap('gray'))
-# pyplot.show()
+    # printing the shapes of the vectors
+    # print('X_train: ' + str(train_x.shape))
+    # print('Y_train: ' + str(train_y.shape))
+    # print('X_test:  ' + str(test_x.shape))
+    # print('Y_test:  '  + str(test_y.shape))
+
+    # for i in range(9):
+    #     pyplot.subplot(330 + 1 + i)
+    #     pyplot.imshow(train_X[i], cmap=pyplot.get_cmap('gray'))
+    # pyplot.show()
+
+
+if __name__ == "__main__":
+    main()
+
