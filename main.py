@@ -10,6 +10,7 @@ import numba
 from dataclasses import dataclass
 
 import numpy as np
+from line_profiler_pycharm import profile
 from numba import njit
 from scipy.special import expit
 
@@ -26,6 +27,26 @@ from matplotlib import pyplot
 # t = (1, 20, train_images_float[0].size)
 # weights = numpy.random.rand(*t)
 # print(weights.shape)
+
+# def sigmoid(x):
+#     return 1 / (1 + np.exp(-x))
+
+# @profile
+# @njit(parallel=True)
+def get_first_layer_weights(a, neuron_weights, neuron_biases):
+    r = numpy.zeros(neuron_weights.shape[1])
+    # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    # print(a, self.neurons_weights[0], self.neurons_biases)
+    for i, (b, w) in enumerate(zip(neuron_biases[0], neuron_weights[0])):
+        # print(a, w)
+        # print(b, w, np.dot(w, a))
+        # print(np.dot(w, a))
+        # print(self.norm_func(np.dot(w, a) + b))
+        # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+        # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+    return r
+
 
 class NetworkData:
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
@@ -47,6 +68,7 @@ class NetworkData:
 
     def get_weights(self):
         return self.neurons_weights, self.output_weights
+
     def set_weights(self, neuron_weights, output_weights):
         self.neurons_weights = neuron_weights
         self.output_weights = output_weights
@@ -55,6 +77,8 @@ class NetworkData:
         self.neurons_weights = numpy.random.rand(*self.init_values[-2])
         self.output_weights = numpy.random.rand(*self.init_values[-1])
 
+    # @profile
+    # @njit(parallel=True)
     def get_first_layer_weights(self, a):
         r = numpy.zeros(self.neurons_weights.shape[1])
         # print(a, self.neurons_weights[0], self.neurons_biases)
@@ -79,6 +103,7 @@ class NetworkData:
         r /= s
         return r
 
+    # @profile
     def set_avg_error(self, data_points, numbers):
         self.avg_error = self.get_avg_error(data_points, numbers)
 
@@ -91,11 +116,13 @@ class NetworkData:
         # print(result)
         return np.sum(result)
 
+    # @profile
     def get_avg_error(self, data_points, numbers):
         # print(data_points.)
         error_vec = numpy.zeros(data_points.shape[0])
         for i, image in enumerate(data_points):  # self.train_images[:data_points]
-            r = self.get_first_layer_weights(image.flat[:])
+            # r = self.get_first_layer_weights(image.flat[:])
+            r = get_first_layer_weights(image.flat[:].astype(numpy.double), self.neurons_weights, self.neurons_biases)
             o = self.get_output_layer_weights(r)
             # print(o)
             error_vec[i] = self.get_error(o, numbers[i])  # self.train_numbers
@@ -190,6 +217,7 @@ class Network:
         return learning_rate
 
     # @njit(parallel=True)
+    # @profile
     def train(self, population, gens, data_points, learning_rate, init_tests):
         self.generate_better_random_net(init_tests)
 
@@ -292,7 +320,7 @@ class Network:
 time_before = time.time()
 
 n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-n.load_weights("net10")
+n.load_weights("net7")
 # data_start = copy.deepcopy(n.data)
 
 # for _ in range(100):
@@ -305,10 +333,11 @@ n.load_weights("net10")
 print("Network init")
 
 # Generating better network doesn't matter, but might as well do it quickly
-n.train(100, 200, (1000, 1200), 0.2, 100)
+data_points = (0, 100)
+n.train(100, 100, data_points, 0.2, 100)
 # data_end = copy.deepcopy(n.data)
 
-r, w = n.compare_to_test((1000, 1200), False)
+r, w = n.compare_to_test(data_points, False)
 print(n.data.avg_error)
 print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TRAIN data)")
 
@@ -320,8 +349,9 @@ print(f"Total time: {time.time() - time_before:.2}s")
 
 # net1 - 27%
 # net2 - ~20?
-# net3 -
-n.save_weights("net11")
+# net7 - 60% test, 80% training (91% on 100 first)
+# net12 - 53% test, 97% training (100), error - 0.045672393817552004
+# n.save_weights("net12")
 
 # n.data = data_start
 # r, w = n.compare_to_test((0, 10000))
