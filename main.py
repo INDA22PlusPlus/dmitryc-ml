@@ -25,7 +25,7 @@ from matplotlib import pyplot
 def normalize(data, divider=255):
     return data * (1 / divider)
 
-@njit(parallel=True)
+@njit
 def get_error(output, number):
     num_vec = numpy.zeros(output.size)
     num_vec[number] = 1.
@@ -37,41 +37,42 @@ def get_error(output, number):
 
 
 # @njit('float64[:](float64[:,::1], float64[::1])')
-@njit(parallel=True)
+@njit
 def get_output_layer_weights(a, output_weights, output_biases):
-    # r = numpy.zeros(output_weights.shape[0])
-    # for i, (b, w) in enumerate(zip(output_biases, output_weights)):
-    #     # print(a, w)
-    #     # print(b, w, np.dot(w, a))
-    #     # print(np.dot(w, a))
-    #     # print(self.norm_func(np.dot(w, a) + b))
-    #     r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+    r = numpy.zeros(output_weights.shape[0])
+    for i, (b, w) in enumerate(zip(output_biases, output_weights)):
+        # print(a, w)
+        # print(b, w, np.dot(w, a))
+        # print(np.dot(w, a))
+        # print(self.norm_func(np.dot(w, a) + b))
+        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)))
 
     # r = np.dot(output_weights, a) + output_biases
-    r = get_layer_weights(a, output_weights, output_biases)
+    # r = get_layer_weights(a, output_weights, output_biases)
 
     s = r.sum()
     r /= s
     return r
 
 
-@njit(parallel=True)
+@njit
 # @profile
 def get_layer_weights(a, neuron_weights, neuron_biases):
-    # r = numpy.zeros(neuron_weights.shape[1])
-    # # sigmoid = lambda x: 1 / (1 + np.exp(-x))
-    # # print(a, self.neurons_weights[0], self.neurons_biases)
-    # for i, (b, w) in enumerate(zip(neuron_biases[0], neuron_weights[0])):
-    #     # print(a, w)
-    #     # print(b, w, np.dot(w, a))
-    #     # print(np.dot(w, a))
-    #     # print(self.norm_func(np.dot(w, a) + b))
-    #     # sigmoid = lambda x: 1 / (1 + np.exp(-x))
-    #     # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
-    #     # d = np.dot(w, a)
-    #     r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b[i])))
+    r = numpy.zeros(neuron_weights.shape[0])
+    # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    # print(a, self.neurons_weights[0], self.neurons_biases)
+    for i, (b, w) in enumerate(zip(neuron_biases, neuron_weights)):
+        # print(a, w)
+        # print(b, w, np.dot(w, a))
+        # print(np.dot(w, a))
+        # print(self.norm_func(np.dot(w, a) + b))
+        # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+        # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
+        # d = np.dot(w, a)
+        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)))
     # dot = np.dot(neuron_weights, a)
-    return 1 / (1 + np.exp(-(np.dot(neuron_weights, a) + neuron_biases)))
+    # r = 1 / (1 + np.exp(-(np.dot(neuron_weights, a) + neuron_biases)))
+    return r
 
 
 class NetworkData:
