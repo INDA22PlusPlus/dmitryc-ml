@@ -36,8 +36,7 @@ def get_error(output, number):
     return np.sum(result)
 
 
-# @njit('float64[:](float64[:,::1], float64[::1])')
-@njit
+@njit("float64[:](float64[::1], float64[:,::1], int32[::1])")
 def get_output_layer_weights(a, output_weights, output_biases):
     r = numpy.zeros(output_weights.shape[0])
     for i, (b, w) in enumerate(zip(output_biases, output_weights)):
@@ -55,7 +54,7 @@ def get_output_layer_weights(a, output_weights, output_biases):
     return r
 
 
-@njit
+@njit("float64[:](float64[::1], float64[:,::1], int32[::1])")
 # @profile
 def get_layer_weights(a, neuron_weights, neuron_biases):
     r = numpy.zeros(neuron_weights.shape[0])
@@ -221,7 +220,8 @@ class Network:
 
     # @profile
     def get_data_normalized(self):
-        (train_images, train_numbers), (test_images, test_numbers) = mnist.load_data()
+        # (train_images, train_numbers), (test_images, test_numbers) = mnist.load_data()
+        (train_images, train_numbers), (test_images, test_numbers) = self.get_data_from_file()
 
         trni = train_images.astype(numpy.double)
         tsti = test_images.astype(numpy.double)
