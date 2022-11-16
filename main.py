@@ -10,13 +10,13 @@ import numba
 from dataclasses import dataclass
 
 import numpy as np
-from line_profiler_pycharm import profile
+# from line_profiler_pycharm import profile
 from numba import njit
 from scipy.special import expit
 import logging, os
-logging.disable(logging.WARNING)
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-from keras.datasets import mnist
+# logging.disable(logging.WARNING)
+# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+# from keras.datasets import mnist
 
 import numpy
 from matplotlib import pyplot
@@ -36,7 +36,7 @@ def get_error(output, number):
     return np.sum(result)
 
 
-@njit("float64[:](float64[::1], float64[:,::1], int32[::1])")
+@njit("float64[:](float64[::1], float64[:,::1], int64[::1])")
 def get_output_layer_weights(a, output_weights, output_biases):
     r = numpy.zeros(output_weights.shape[0])
     for i, (b, w) in enumerate(zip(output_biases, output_weights)):
@@ -54,8 +54,8 @@ def get_output_layer_weights(a, output_weights, output_biases):
     return r
 
 
-@njit("float64[:](float64[::1], float64[:,::1], int32[::1])")
-# @profile
+@njit("float64[:](float64[::1], float64[:,::1], int64[::1])")
+# # @profile
 def get_layer_weights(a, neuron_weights, neuron_biases):
     r = numpy.zeros(neuron_weights.shape[0])
     # sigmoid = lambda x: 1 / (1 + np.exp(-x))
@@ -105,7 +105,7 @@ class NetworkData:
         self.neurons_weights = numpy.random.rand(*self.init_values[-2])
         self.output_weights = numpy.random.rand(*self.init_values[-1])
 
-    # @profile
+    # # @profile
     # @njit(parallel=True)
     def get_first_layer_weights(self, a):
         r = numpy.zeros(self.neurons_weights.shape[1])
@@ -131,7 +131,7 @@ class NetworkData:
         r /= s
         return r
 
-    # @profile
+    # # @profile
     def set_avg_error(self, data_points, numbers):
         self.avg_error = self.get_avg_error(data_points, numbers)
 
@@ -144,7 +144,7 @@ class NetworkData:
         # print(result)
         return np.sum(result)
 
-    @profile
+    # @profile
     def get_avg_error(self, data_points, numbers):
         # print(data_points.)
         error_vec = numpy.zeros(data_points.shape[0])
@@ -178,7 +178,7 @@ class NetworkData:
         ncopy.mutate(learning_rate)
         return ncopy
 
-    # @profile
+    # # @profile
     def compute_number(self, image):
         r = get_layer_weights(image.flat[:], self.neurons_weights[0],
                               self.neurons_biases[0])
@@ -190,7 +190,7 @@ class NetworkData:
 
 
 class Network:
-    # @profile
+    # # @profile
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
                  outputs: int, output_bias: int,
                  norm_func_name: str = "expit"):
@@ -208,7 +208,7 @@ class Network:
 
         self.data = NetworkData(*self.data_params)
 
-    @profile
+    # @profile
     def get_data_from_file(self):
         f = gzip.open('data/mnist.pkl.gz', 'rb')
         if sys.version_info < (3,):
@@ -220,7 +220,7 @@ class Network:
         # loading the dataset
         return data
 
-    # @profile
+    # # @profile
     def get_data_normalized(self):
         # (train_images, train_numbers), (test_images, test_numbers) = mnist.load_data()
         (train_images, train_numbers), (test_images, test_numbers) = self.get_data_from_file()
@@ -267,7 +267,7 @@ class Network:
         return learning_rate
 
     # @njit(parallel=True)
-    @profile
+    # @profile
     def train(self, population, gens, data_points, learning_rate, init_tests):
         # self.generate_better_random_net(init_tests)
 
@@ -304,7 +304,7 @@ class Network:
             # print()
         self.data = networks[0]
 
-    # @profile
+    # # @profile
     def compare_to_test(self, in_range, test=True):
         right = 0
         wrong = 0
@@ -360,7 +360,7 @@ class Network:
         self.data.set_weights(neuron_weights, output_weights)
 
 
-@profile
+# @profile
 def main():
     # neurons = 20
     # layers = 1
@@ -375,9 +375,10 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 50), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-    n.load_weights("net_50w_3")
-    # n.load_weights("net_100w_3")
+    n = Network(neuron_layers_shape=(1, 100), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
+    # n.load_weights("net_20w_100")
+    # n.load_weights("net_50w_3")
+    n.load_weights("net_100w_3")
     # data_start = copy.deepcopy(n.data)
 
     # for _ in range(100):
@@ -391,7 +392,7 @@ def main():
 
     # Generating better network doesn't matter, but might as well do it quickly
     data_points = (0, 2000)
-    # n.train(100, 500, data_points, 0.1, 100)
+    n.train(100, 500, data_points, 0.1, 100)
     # data_end = copy.deepcopy(n.data)
 
     r, w = n.compare_to_test(data_points, False)
@@ -409,35 +410,6 @@ def main():
     # net7 - 60% test, 80% training (91% on 100 first)
     # net12 - 53% test, 97% training (100), error - 0.045672393817552004
     # n.save_weights("net_50w_3")
-
-    # n.data = data_start
-    # r, w = n.compare_to_test((0, 10000))
-    # print(n.data.avg_error)
-    # print(f"Right: {r}  -   Wrong: {w}")
-
-    # print(train_images_float[0].flat[:].shape)
-
-    # r = n.get_first_layer_weights(train_images_float[0].flat[:])
-    # o = n.get_output_layer_weights(r)
-    # e = n.get_error(o, train_numbers[0])
-    #
-    # print()
-    # print(e)
-
-    # print(o)
-
-    # for v in r:
-    #     print(v)
-
-    # print(output)
-
-    # gens = 100
-    # # for gen in range(gens):
-    # for image in test_images[:100]:
-    #
-    #     pass
-
-    # print(train_images.)
 
     # printing the shapes of the vectors
     # print('X_train: ' + str(train_x.shape))
