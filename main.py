@@ -60,6 +60,7 @@ def get_layer_weights(a, neuron_weights, neuron_biases):
     r = numpy.zeros(neuron_weights.shape[0])
     # sigmoid = lambda x: 1 / (1 + np.exp(-x))
     # print(a, self.neurons_weights[0], self.neurons_biases)
+
     for i, (b, w) in enumerate(zip(neuron_biases, neuron_weights)):
         # print(a, w)
         # print(b, w, np.dot(w, a))
@@ -69,6 +70,7 @@ def get_layer_weights(a, neuron_weights, neuron_biases):
         # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
         # d = np.dot(w, a)
         r[i] = 1 / (1 + np.exp(-(np.dot(np.ascontiguousarray(w), a) + b)))
+
     # dot = np.dot(neuron_weights, a)
     # r = 1 / (1 + np.exp(-(np.dot(neuron_weights, a) + neuron_biases)))
     return r
@@ -142,7 +144,7 @@ class NetworkData:
         # print(result)
         return np.sum(result)
 
-    # @profile
+    @profile
     def get_avg_error(self, data_points, numbers):
         # print(data_points.)
         error_vec = numpy.zeros(data_points.shape[0])
@@ -235,12 +237,25 @@ class Network:
         best_multiple = population // 20
         best = networks[:best_multiple]
         new = copy.deepcopy(best)
-        [print({net.avg_error}, end=" ") for net in best]
+        [print(f"[{net.avg_error}] ", end=" ") for net in best]
         # print()
         for i, net in enumerate(best):
             # 5 - 30 25 20 15 10
             for _ in range(best_multiple * (6 - i) - 1):
                 new.append(net.get_mutated_copy(learning_rate))
+
+        # [print({net.avg_error}, end=" ") for net in best]
+        # print()
+
+        return new
+
+    def evolve_best(self, networks, population, learning_rate):
+        best = networks[0]
+        new = []
+        print(f"[{best.avg_error}]", end=" ")
+
+        for _ in range(population):
+            new.append(best.get_mutated_copy(learning_rate))
 
         # [print({net.avg_error}, end=" ") for net in best]
         # print()
@@ -281,9 +296,9 @@ class Network:
 
             # TODO: Decide where this should be
             networks.sort(key=lambda x: x.avg_error)
-            networks = self.evolve(networks, population, learning_rate)
+            networks = self.evolve_best(networks, population, learning_rate)
 
-            print(f"({time.time() - start:.2}s)")
+            print(f"({time.time() - start:.2f}s)")
 
             # [print(net.avg_error, end=" ") for net in networks]
             # print()
@@ -318,7 +333,6 @@ class Network:
         self.data = max(arr, key=lambda x: x[0])[1]
 
         # print("Generated better random network")
-
 
     def save_weights(self, map_name="net"):
         cur_dir = os.path.dirname(__file__)
@@ -361,8 +375,9 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-    n.load_weights("net7")
+    n = Network(neuron_layers_shape=(1, 50), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
+    n.load_weights("net_50w_3")
+    # n.load_weights("net_100w_3")
     # data_start = copy.deepcopy(n.data)
 
     # for _ in range(100):
@@ -370,13 +385,13 @@ def main():
     # print(n.data.avg_error)
     # print(f"Right: {r}  -   Wrong: {w}")
 
-    # n.data.regenerate_weights()
+    # print(n.data.neurons_weights.shape)
 
     print("Network init")
 
     # Generating better network doesn't matter, but might as well do it quickly
-    data_points = (0, 100)
-    n.train(100, 100, data_points, 0.2, 100)
+    data_points = (0, 2000)
+    # n.train(100, 500, data_points, 0.1, 100)
     # data_end = copy.deepcopy(n.data)
 
     r, w = n.compare_to_test(data_points, False)
@@ -387,13 +402,13 @@ def main():
     print(n.data.avg_error)
     print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TEST data)")
 
-    print(f"Total time: {time.time() - time_before:.2}s")
+    print(f"Total time: {time.time() - time_before:.2f}s")
 
     # net1 - 27%
     # net2 - ~20?
     # net7 - 60% test, 80% training (91% on 100 first)
     # net12 - 53% test, 97% training (100), error - 0.045672393817552004
-    # n.save_weights("net12")
+    # n.save_weights("net_50w_3")
 
     # n.data = data_start
     # r, w = n.compare_to_test((0, 10000))
