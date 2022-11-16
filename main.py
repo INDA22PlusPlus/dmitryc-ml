@@ -44,7 +44,7 @@ def get_output_layer_weights(a, output_weights, output_biases):
         # print(b, w, np.dot(w, a))
         # print(np.dot(w, a))
         # print(self.norm_func(np.dot(w, a) + b))
-        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)))
+        r[i] = 1 / (1 + np.exp(-(np.dot(np.ascontiguousarray(w), a) + b)))
 
     # r = np.dot(output_weights, a) + output_biases
     # r = get_layer_weights(a, output_weights, output_biases)
@@ -68,7 +68,7 @@ def get_layer_weights(a, neuron_weights, neuron_biases):
         # sigmoid = lambda x: 1 / (1 + np.exp(-x))
         # 1 / (1 + np.exp(-(np.dot(w, a) + b)[0]))
         # d = np.dot(w, a)
-        r[i] = 1 / (1 + np.exp(-(np.dot(w, a) + b)))
+        r[i] = 1 / (1 + np.exp(-(np.dot(np.ascontiguousarray(w), a) + b)))
     # dot = np.dot(neuron_weights, a)
     # r = 1 / (1 + np.exp(-(np.dot(neuron_weights, a) + neuron_biases)))
     return r
@@ -223,11 +223,11 @@ class Network:
         # (train_images, train_numbers), (test_images, test_numbers) = mnist.load_data()
         (train_images, train_numbers), (test_images, test_numbers) = self.get_data_from_file()
 
-        trni = train_images.astype(numpy.double)
-        tsti = test_images.astype(numpy.double)
+        trn_i = train_images.astype(numpy.double)
+        tst_i = test_images.astype(numpy.double)
 
-        train_images = normalize(trni)
-        test_images = normalize(tsti)
+        train_images = normalize(trn_i)
+        test_images = normalize(tst_i)
 
         return (train_images, train_numbers), (test_images, test_numbers)
 
