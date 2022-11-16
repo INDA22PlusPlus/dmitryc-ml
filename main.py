@@ -32,7 +32,7 @@ from matplotlib import pyplot
 #     return 1 / (1 + np.exp(-x))
 
 # @profile
-# @njit(parallel=True)
+@njit
 def get_first_layer_weights(a, neuron_weights, neuron_biases):
     r = numpy.zeros(neuron_weights.shape[1])
     # sigmoid = lambda x: 1 / (1 + np.exp(-x))
