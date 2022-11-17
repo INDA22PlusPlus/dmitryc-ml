@@ -10,7 +10,7 @@ import numba
 from dataclasses import dataclass
 
 import numpy as np
-# from line_profiler_pycharm import profile
+from line_profiler_pycharm import profile
 from numba import njit
 from scipy.special import expit
 import logging, os
@@ -310,7 +310,7 @@ class Network:
 
             # [print(net.avg_error, end=" ") for net in networks]
             # print()
-        self.data = networks[0]
+            self.data = networks[0]
 
     def compare_to_test_data(self, in_range=(0, 60000), test=True):
         size = in_range[1] - in_range[0]
@@ -464,15 +464,22 @@ def main():
     n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
 
     # load_dir = "net_20w_100_10k"
-    load_dir = "net_20w_100_20k"
+    load_dir = "net_20w_100_20k"              # 50627 - 8384
     # load_dir = "net_20w_100_20k_20k_0-005lr"
     # load_dir = "net_20w_100_20k_20k_0-01lr"
     # load_dir = "net_20w_100_20k_60k_0-05lr"
     # load_dir = "net_20w_100_60k"
+    # load_dir = "net_20w_100_20k_test"           # 50620 - 8388
 
     # load_dir = "net_50w_1"
     # load_dir = "net_75w_1"
     # load_dir = "net_100w_1"
+
+    # save_dir = "net_20w_100_20k"
+    # save_dir = "net_20w_100_20k_20k_0-005lr"
+    # save_dir = "net_20w_100_20k_20k_0-01lr"
+    # save_dir = "net_20w_100_20k_60k_0-02lr"
+    # save_dir = "net_20w_100_20k_test"
 
     n.load_weights(load_dir)
 
@@ -491,37 +498,32 @@ def main():
 
     # n.compare_to_test_data(data_points)
 
-    n.train(10, 3500, data_points, 0.05, 100)
-    # data_end = copy.deepcopy(n.data)
+    try:
+        # n.train(10, 3500, data_points, 0.02, 100)
+        pass
+    except:
+        pass
+    finally:
+        r, w = n.compare_to_test(data_points, False)
+        print(n.data.avg_error)
+        print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TRAIN data)")
 
-    r, w = n.compare_to_test(data_points, False)
-    print(n.data.avg_error)
-    print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TRAIN data)")
+        r, w = n.compare_to_test((0, 10000))
+        print(n.data.avg_error)
+        print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TEST data)")
 
-    r, w = n.compare_to_test((0, 10000))
-    print(n.data.avg_error)
-    print(f"Right: {r}  -   Wrong: {w}      (Trained - compared to TEST data)")
+        print(f"Total time: {time.time() - time_before:.2f}s")
 
-    print(f"Total time: {time.time() - time_before:.2f}s")
+        # n.save_weights(save_dir)
+        # n.save_right_wrong_data(save_dir)
 
     # net1 - 27%
     # net2 - ~20?
     # net7 - 60% test, 80% training (91% on 100 first)
     # net12 - 53% test, 97% training (100), error - 0.045672393817552004
 
-    # save_dir = "net_20w_100_20k"
-    # save_dir = "net_20w_100_20k_20k_0-005lr"
-    # save_dir = "net_20w_100_20k_20k_0-01lr"
-    save_dir = "net_20w_100_20k_60k_0-05lr"
-
-    n.save_weights(save_dir)
-    n.save_right_wrong_data(save_dir)
-
-    # printing the shapes of the vectors
-    # print('X_train: ' + str(train_x.shape))
-    # print('Y_train: ' + str(train_y.shape))
-    # print('X_test:  ' + str(test_x.shape))
-    # print('Y_test:  '  + str(test_y.shape))
+    # n.save_weights(save_dir)
+    # n.save_right_wrong_data(save_dir)
 
     # for i in range(9):
     #     pyplot.subplot(330 + 1 + i)
