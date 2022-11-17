@@ -98,20 +98,27 @@ def evolve_best(networks, population, learning_rate):
 
 
 class NetworkData:
-    def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
-                 outputs: int, output_bias: int, nodes: int, norm_func):
+    def __init__(self, neuron_layers_shape: tuple, neuron_bias: tuple,
+                 outputs: int, output_bias: tuple, neurons: int, norm_func,
+                 use_old_biases=True, old_biases=(-35, -9)):
         self.norm_func = norm_func
 
-        neurons_full_shape = (*neuron_layers_shape, nodes)
+        neurons_full_shape = (*neuron_layers_shape, neurons)
         output_full_shape = (outputs, neuron_layers_shape[1])
         # print(neurons_full_shape, output_full_shape)
-        self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, nodes,
+        self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, neurons,
                             neurons_full_shape, output_full_shape)
 
-        self.neurons_weights = numpy.random.rand(*neurons_full_shape)
-        self.neurons_biases = np.full(neuron_layers_shape, neuron_bias, dtype=np.int64)
+        self.neurons_weights = np.random.rand(*neurons_full_shape)
         self.output_weights = numpy.random.rand(*output_full_shape)
-        self.output_biases = np.full(outputs, output_bias, dtype=np.int64)
+        if use_old_biases:
+            self.neurons_biases = np.full(neuron_layers_shape, old_biases[0], dtype=np.int64)
+            self.output_biases = np.full(outputs, old_biases[1], dtype=np.int64)
+        else:
+            self.neurons_biases = np.random.randint(*neuron_bias,
+                                                    size=neuron_layers_shape, dtype=np.int64)
+            self.output_biases = np.random.randint(*output_bias,
+                                                   size=outputs, dtype=np.int64)
 
         self.avg_error = 0
 
@@ -122,9 +129,20 @@ class NetworkData:
         self.neurons_weights = neuron_weights
         self.output_weights = output_weights
 
+    def set_biases(self, neuron_biases, output_biases):
+        self.neurons_biases = neuron_biases
+        self.output_biases = output_biases
+
     def regenerate_weights(self):
-        self.neurons_weights = numpy.random.rand(*self.init_values[-2])
-        self.output_weights = numpy.random.rand(*self.init_values[-1])
+        self.neurons_weights = numpy.random.rand(self.neurons_weights.shape)
+        self.output_weights = numpy.random.rand(self.output_weights.shape)
+
+    def regenerate_biases(self):
+        self.neurons_biases = np.random.randint(*self.init_values[1],
+                                                size=self.neurons_biases.shape, dtype=np.int64)
+        self.output_biases = np.random.randint(*self.init_values[3],
+                                               size=self.output_biases.shape, dtype=np.int64)
+
 
     # # @profile
     # @njit(parallel=True)
@@ -180,7 +198,7 @@ class NetworkData:
 
         return np.average(error_vec)
 
-    # TODO: NEEDS FIX
+    # TODO: NEEDS FIX, need to add bias mutation too
     def mutate(self, learning_rate):
         dif_arr_n = numpy.random.uniform(-learning_rate, learning_rate, self.neurons_weights.size) \
             .reshape(self.neurons_weights.shape)
@@ -212,8 +230,8 @@ class NetworkData:
 
 class Network:
     # # @profile
-    def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
-                 outputs: int, output_bias: int,
+    def __init__(self, neuron_layers_shape: tuple, neuron_bias: tuple,
+                 outputs: int, output_bias: tuple,
                  norm_func_name: str = "expit"):
         # self.init_values = (neuron_layers_shape, neuron_bias, outputs, output_bias, norm_func_name)
 
@@ -275,8 +293,9 @@ class Network:
 
     # @njit(parallel=True)
     # @profile
-    def train(self, population, gens, data_points, learning_rate, init_tests):
+    def train(self, population, gens, data_points, learning_rate, init_tests, init_biases):
         # self.generate_better_random_net(init_tests)
+        self.generate_better_biases(init_biases)
 
         # print("Generated better random network")
 
@@ -364,6 +383,14 @@ class Network:
 
         return right, wrong
 
+    def generate_better_biases(self, tests, comparisons=100):
+        arr = []
+        for i in range(tests):
+            # print(i)
+            arr.append([self.compare_to_test((0, comparisons), False)[0], copy.deepcopy(self.data)])
+            self.data.regenerate_biases()
+        self.data = max(arr, key=lambda x: x[0])[1]
+
     def generate_better_random_net(self, tests, comparisons=100):
         arr = []
         for i in range(tests):
@@ -374,7 +401,16 @@ class Network:
 
         # print("Generated better random network")
 
-    def save_weights(self, map_name="net"):
+    def save_weights_biases(self, map_name="net", weights_or_biases="weights"):
+        if weights_or_biases == "weights":
+            n = self.data.neurons_weights
+            o = self.data.output_weights
+        elif weights_or_biases == "biases":
+            n = self.data.neurons_biases
+            o = self.data.output_biases
+        else:
+            raise Exception(f"W/B must be either 'weights' or 'biases', got: {weights_or_biases}")
+
         cur_dir = os.path.dirname(__file__)
         # print(cur_dir)
         full_path_dir = f"{cur_dir}/data/saved_nets/{map_name}"
@@ -387,15 +423,16 @@ class Network:
                 pass
             os.mkdir(full_path_net)
 
-            with open(f"{full_path_net}/neuron_weights.npy", "x"):
+            with open(f"{full_path_net}/neuron_{weights_or_biases}.npy", "x"):
                 pass
-            with open(f"{full_path_net}/output_weights.npy", "x"):
+            with open(f"{full_path_net}/output_{weights_or_biases}.npy", "x"):
                 pass
         except OSError as e:
-            print(e)
+            # print(e)
+            pass
 
-        numpy.save(f"{full_path_net}/neuron_weights.npy", self.data.neurons_weights)
-        numpy.save(f"{full_path_net}/output_weights.npy", self.data.output_weights)
+        numpy.save(f"{full_path_net}/neuron_{weights_or_biases}.npy", n)
+        numpy.save(f"{full_path_net}/output_{weights_or_biases}.npy", o)
 
     def save_right_wrong_data(self, map_name="net"):
         cur_dir = os.path.dirname(__file__)
@@ -419,7 +456,8 @@ class Network:
             with open(f"{full_path_rwd}/wrong_num.npy", "x"):
                 pass
         except OSError as e:
-            print(e)
+            # print(e)
+            pass
 
         rw, rn, ww, wn = self.compare_to_test_data()
 
@@ -439,15 +477,20 @@ class Network:
 
         return rw, rn, ww, wn
 
-    def load_weights(self, map_name="net"):
+    def load_weights_biases(self, map_name="net", weights_or_biases="weights"):
         print(f"Dir: {map_name}")
 
         cur_dir = os.path.dirname(__file__)
         full_path = f"{cur_dir}/data/saved_nets/{map_name}/net"
 
-        neuron_weights = numpy.load(f"{full_path}/neuron_weights.npy")
-        output_weights = numpy.load(f"{full_path}/output_weights.npy")
-        self.data.set_weights(neuron_weights, output_weights)
+        neuron_w_b = numpy.load(f"{full_path}/neuron_{weights_or_biases}.npy")
+        output_w_b = numpy.load(f"{full_path}/output_{weights_or_biases}.npy")
+        if weights_or_biases == "weights":
+            self.data.set_weights(neuron_w_b, output_w_b)
+        elif weights_or_biases == "biases":
+            self.data.set_biases(neuron_w_b, output_w_b)
+        else:
+            raise Exception(f"W/B must be either 'weights' or 'biases', got: {weights_or_biases}")
 
 
 # @profile
@@ -465,13 +508,15 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
+    n = Network(neuron_layers_shape=(1, 20), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
+                norm_func_name="expit")
 
+    # load_dir = "net_20w_rb_1"
     # load_dir = "net_20w_100_10k"
-    load_dir = "net_20w_100_20k"              # 50627 - 8384
+    # load_dir = "net_20w_100_20k"              # 50627 - 8384
     # load_dir = "net_20w_100_20k_20k_0-005lr"
     # load_dir = "net_20w_100_20k_20k_0-01lr"
-    # load_dir = "net_20w_100_20k_60k_0-05lr"
+    load_dir = "net_20w_100_20k_60k_0-02lr"
     # load_dir = "net_20w_100_60k"
     # load_dir = "net_20w_100_20k_test"           # 50620 - 8388
 
@@ -479,13 +524,15 @@ def main():
     # load_dir = "net_75w_1"
     # load_dir = "net_100w_1"
 
+    # save_dir = "net_20w_rb_1"
     # save_dir = "net_20w_100_20k"
     # save_dir = "net_20w_100_20k_20k_0-005lr"
     # save_dir = "net_20w_100_20k_20k_0-01lr"
     # save_dir = "net_20w_100_20k_60k_0-02lr"
     # save_dir = "net_20w_100_20k_test"
 
-    n.load_weights(load_dir)
+    n.load_weights_biases(load_dir, "weights")
+    # n.load_weights_biases(load_dir, "biases")
 
     # r_w = n.load_right_wrong_data(load_dir)
 
@@ -502,8 +549,10 @@ def main():
 
     # n.compare_to_test_data(data_points)
 
+    # n.train(10, 1000, data_points, 0.2, 100, 100)
+
     try:
-        # n.train(10, 3500, data_points, 0.02, 100)
+        # n.train(10, 3500, data_points, 0.02, 100, 100)
         pass
     except:
         pass
@@ -518,7 +567,8 @@ def main():
 
         print(f"Total time: {time.time() - time_before:.2f}s")
 
-        # n.save_weights(save_dir)
+        # n.save_weights_biases(save_dir, "weights")
+        # n.save_weights_biases(save_dir, "biases")
         # n.save_right_wrong_data(save_dir)
 
     # net1 - 27%
