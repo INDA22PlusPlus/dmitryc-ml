@@ -76,6 +76,27 @@ def get_layer_weights(a, neuron_weights, neuron_biases):
     return r
 
 
+@njit
+def step_decay(gen, init_learning_rate=0.2, drop=0.99, gen_drop=10):
+        learning_rate = init_learning_rate * math.pow(drop, math.floor((1 + gen) / gen_drop))
+        return learning_rate
+
+
+# @njit
+def evolve_best(networks, population, learning_rate):
+    best = networks[0]
+    new = []
+    print(f"[{best.avg_error}]", end=" ")
+
+    for _ in range(population):
+        new.append(best.get_mutated_copy(learning_rate))
+
+    # [print({net.avg_error}, end=" ") for net in best]
+    # print()
+
+    return new
+
+
 class NetworkData:
     def __init__(self, neuron_layers_shape: tuple, neuron_bias: int,
                  outputs: int, output_bias: int, nodes: int, norm_func):
@@ -88,9 +109,9 @@ class NetworkData:
                             neurons_full_shape, output_full_shape)
 
         self.neurons_weights = numpy.random.rand(*neurons_full_shape)
-        self.neurons_biases = np.full(neuron_layers_shape, neuron_bias)
+        self.neurons_biases = np.full(neuron_layers_shape, neuron_bias, dtype=np.int64)
         self.output_weights = numpy.random.rand(*output_full_shape)
-        self.output_biases = np.full(outputs, output_bias)
+        self.output_biases = np.full(outputs, output_bias, dtype=np.int64)
 
         self.avg_error = 0
 
@@ -228,6 +249,9 @@ class Network:
         trn_i = train_images.astype(numpy.double)
         tst_i = test_images.astype(numpy.double)
 
+        # train_numbers = train_numbers.astype(numpy.int64)
+        # test_numbers = test_numbers.astype(numpy.int64)
+
         train_images = normalize(trn_i)
         test_images = normalize(tst_i)
 
@@ -249,23 +273,6 @@ class Network:
 
         return new
 
-    def evolve_best(self, networks, population, learning_rate):
-        best = networks[0]
-        new = []
-        print(f"[{best.avg_error}]", end=" ")
-
-        for _ in range(population):
-            new.append(best.get_mutated_copy(learning_rate))
-
-        # [print({net.avg_error}, end=" ") for net in best]
-        # print()
-
-        return new
-
-    def step_decay(self, gen, init_learning_rate=0.2, drop=0.8, gen_drop=10):
-        learning_rate = init_learning_rate * math.pow(drop, math.floor((1 + gen) / gen_drop))
-        return learning_rate
-
     # @njit(parallel=True)
     # @profile
     def train(self, population, gens, data_points, learning_rate, init_tests):
@@ -273,7 +280,7 @@ class Network:
 
         # print("Generated better random network")
 
-        r, w = self.compare_to_test((0, 10000), False)
+        r, w = self.compare_to_test(data_points, False)
         print(self.data.avg_error)
         print(f"Right: {r}  -   Wrong: {w}      (Untrained - compared to TRAIN data)")
 
@@ -284,25 +291,54 @@ class Network:
         networks = [copy.deepcopy(self.data) for _ in range(population)]
         # networks[0].set_weights(self.data.get_weights())
         # print(networks)
-        # init_learning_rate = learning_rate
+        init_learning_rate = learning_rate
         left, right = data_points
         for gen in range(gens):
-            # learning_rate = self.step_decay(gen, init_learning_rate)
+            learning_rate = step_decay(gen, init_learning_rate)
             start = time.time()
-            print(f"{gen}", end=" ")
+            print(f"{gen}/{gens}:", end=" ")
             for i, network in enumerate(networks):
                 networks[i].set_avg_error(self.train_images[left:right], self.train_numbers)
                 # print(networks[i].avg_error)
 
             # TODO: Decide where this should be
             networks.sort(key=lambda x: x.avg_error)
-            networks = self.evolve_best(networks, population, learning_rate)
+            networks = evolve_best(networks, population, learning_rate)
+            # print(f"[{networks[0].avg_error}]", end=" ")
 
             print(f"({time.time() - start:.2f}s)")
 
             # [print(net.avg_error, end=" ") for net in networks]
             # print()
         self.data = networks[0]
+
+    def compare_to_test_data(self, in_range, test=True):
+        size = in_range[1] - in_range[0]
+        right_wgt = np.zeros((size, *self.train_images.shape[1:]), dtype=np.double)
+        right_num = np.full(size, -1, dtype=np.int64)
+        wrong_wgt = np.zeros((size, *self.train_images.shape[1:]), dtype=np.double)
+        wrong_num = np.full(size, -1, dtype=np.int64)
+
+        f, t = in_range
+
+        images, numbers = self.test_images[f:t], self.test_numbers[f:t]
+        if not test:
+            images, numbers = self.train_images[f:t], self.train_numbers[f:t]
+
+        for i, (image, num) in enumerate(zip(images, numbers)):
+            comp_num = self.data.compute_number(image)
+            if comp_num == num:
+                right_wgt[i] = image
+                right_num[i] = num
+            else:
+                wrong_wgt[i] = image
+                wrong_num[i] = num
+
+        rw = right_wgt[~np.all(right_wgt == 0, axis=(1, 2))]
+        rn = right_num[right_num != -1]
+        ww = wrong_wgt[~np.all(wrong_wgt == 0, axis=(1, 2))]
+        wn = wrong_num[wrong_num != -1]
+        return rw, rn, ww, wn
 
     # # @profile
     def compare_to_test(self, in_range, test=True):
@@ -375,10 +411,11 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 100), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-    # n.load_weights("net_20w_100")
+    n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
+    # n.load_weights("net1")
+    n.load_weights("net_20w_100_20k")
     # n.load_weights("net_50w_3")
-    n.load_weights("net_100w_3")
+    # n.load_weights("net_100w_3")
     # data_start = copy.deepcopy(n.data)
 
     # for _ in range(100):
@@ -386,13 +423,15 @@ def main():
     # print(n.data.avg_error)
     # print(f"Right: {r}  -   Wrong: {w}")
 
-    # print(n.data.neurons_weights.shape)
-
     print("Network init")
+    print(f"Shape: {n.data.neurons_weights.shape}")
 
     # Generating better network doesn't matter, but might as well do it quickly
-    data_points = (0, 2000)
-    n.train(100, 500, data_points, 0.1, 100)
+    data_points = (0, 60000)
+
+    n.compare_to_test_data(data_points)
+
+    n.train(10, 500, data_points, 0.1, 100)
     # data_end = copy.deepcopy(n.data)
 
     r, w = n.compare_to_test(data_points, False)
@@ -409,7 +448,7 @@ def main():
     # net2 - ~20?
     # net7 - 60% test, 80% training (91% on 100 first)
     # net12 - 53% test, 97% training (100), error - 0.045672393817552004
-    # n.save_weights("net_50w_3")
+    # n.save_weights("net_20w_100_60k")
 
     # printing the shapes of the vectors
     # print('X_train: ' + str(train_x.shape))
