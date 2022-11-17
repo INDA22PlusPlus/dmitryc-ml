@@ -295,7 +295,7 @@ class Network:
     # @profile
     def train(self, population, gens, data_points, learning_rate, init_tests, init_biases):
         # self.generate_better_random_net(init_tests)
-        self.generate_better_biases(init_biases)
+        # self.generate_better_biases(init_biases)
 
         # print("Generated better random network")
 
@@ -316,7 +316,7 @@ class Network:
             # Step decay:
             #   - Low gens: drop = 0.95-0.99, drop_gens = 10
             #   - High gens: drop = 0.99-0.995, drop_gens = 100
-            learning_rate = step_decay(gen, init_learning_rate, 0.99, 100)
+            learning_rate = step_decay(gen, init_learning_rate, 0.95, 100)
 
             start = time.time()
             print(f"{gen + 1}/{gens}:", end=" ")
@@ -508,28 +508,32 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 20), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
+    n = Network(neuron_layers_shape=(1, 75), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
                 norm_func_name="expit")
 
     # load_dir = "net_20w_rb_1"
     # load_dir = "net_20w_100_10k"
-    # load_dir = "net_20w_100_20k"              # 50627 - 8384
+    # load_dir = "net_20w_100_20k"                      # 50627 - 8384
     # load_dir = "net_20w_100_20k_20k_0-005lr"
     # load_dir = "net_20w_100_20k_20k_0-01lr"
-    load_dir = "net_20w_100_20k_60k_0-02lr"
+    # load_dir = "net_20w_100_20k_60k_0-02lr"           # 51550 - 8514
     # load_dir = "net_20w_100_60k"
-    # load_dir = "net_20w_100_20k_test"           # 50620 - 8388
+    # load_dir = "net_20w_100_20k_test"                 # 50620 - 8388
 
-    # load_dir = "net_50w_1"
-    # load_dir = "net_75w_1"
-    # load_dir = "net_100w_1"
+    # load_dir = "net_50w_5"                            # 51154 - 8317
+    load_dir = "net_75w_7"                              # 51249 - 8402
+    # load_dir = "net_100w_5"
 
     # save_dir = "net_20w_rb_1"
     # save_dir = "net_20w_100_20k"
     # save_dir = "net_20w_100_20k_20k_0-005lr"
     # save_dir = "net_20w_100_20k_20k_0-01lr"
-    # save_dir = "net_20w_100_20k_60k_0-02lr"
+    # save_dir = "net_20w_100_20k_60k_0-02lr_2"
     # save_dir = "net_20w_100_20k_test"
+
+    # save_dir = "net_50w_6"
+    save_dir = "net_75w_8"
+    # save_dir = "net_100w_6"
 
     n.load_weights_biases(load_dir, "weights")
     # n.load_weights_biases(load_dir, "biases")
@@ -552,7 +556,7 @@ def main():
     # n.train(10, 1000, data_points, 0.2, 100, 100)
 
     try:
-        # n.train(10, 3500, data_points, 0.02, 100, 100)
+        n.train(10, 3000, data_points, 0.005, 100, 100)
         pass
     except:
         pass
@@ -567,7 +571,7 @@ def main():
 
         print(f"Total time: {time.time() - time_before:.2f}s")
 
-        # n.save_weights_biases(save_dir, "weights")
+        n.save_weights_biases(save_dir, "weights")
         # n.save_weights_biases(save_dir, "biases")
         # n.save_right_wrong_data(save_dir)
 
