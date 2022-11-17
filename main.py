@@ -294,7 +294,11 @@ class Network:
         init_learning_rate = learning_rate
         left, right = data_points
         for gen in range(gens):
-            learning_rate = step_decay(gen, init_learning_rate)
+            # Step decay:
+            #   - Low gens: drop = 0.95-0.99, drop_gens = 10
+            #   - High gens: drop = 0.99-0.995, drop_gens = 100
+            learning_rate = step_decay(gen, init_learning_rate, 0.99, 100)
+
             start = time.time()
             print(f"{gen + 1}/{gens}:", end=" ")
             for i, network in enumerate(networks):
