@@ -85,10 +85,10 @@ def step_decay(gen, init_learning_rate=0.2, drop=0.99, gen_drop=10):
 # @njit
 def evolve_best(networks, population, learning_rate):
     best = networks[0]
-    new = []
+    new = [best]
     print(f"[{best.avg_error}]", end=" ")
 
-    for _ in range(population):
+    for _ in range(population - 1):
         new.append(best.get_mutated_copy(learning_rate))
 
     # [print({net.avg_error}, end=" ") for net in best]
@@ -296,7 +296,7 @@ class Network:
         for gen in range(gens):
             learning_rate = step_decay(gen, init_learning_rate)
             start = time.time()
-            print(f"{gen}/{gens}:", end=" ")
+            print(f"{gen + 1}/{gens}:", end=" ")
             for i, network in enumerate(networks):
                 networks[i].set_avg_error(self.train_images[left:right], self.train_numbers)
                 # print(networks[i].avg_error)
@@ -312,7 +312,7 @@ class Network:
             # print()
         self.data = networks[0]
 
-    def compare_to_test_data(self, in_range, test=True):
+    def compare_to_test_data(self, in_range=(0, 60000), test=True):
         size = in_range[1] - in_range[0]
         right_wgt = np.zeros((size, *self.train_images.shape[1:]), dtype=np.double)
         right_num = np.full(size, -1, dtype=np.int64)
@@ -373,23 +373,73 @@ class Network:
     def save_weights(self, map_name="net"):
         cur_dir = os.path.dirname(__file__)
         # print(cur_dir)
-        full_path = f"{cur_dir}/data/saved_weights/{map_name}"
-        print(full_path)
+        full_path_dir = f"{cur_dir}/data/saved_nets/{map_name}"
+        full_path_net = f"{full_path_dir}/net"
+        print(full_path_net)
         try:
-            os.mkdir(full_path)
-            with open(f"{full_path}/neuron_weights.npy", "x"):
+            try:
+                os.mkdir(full_path_dir)
+            except OSError as e:
                 pass
-            with open(f"{full_path}/output_weights.npy", "x"):
+            os.mkdir(full_path_net)
+
+            with open(f"{full_path_net}/neuron_weights.npy", "x"):
+                pass
+            with open(f"{full_path_net}/output_weights.npy", "x"):
                 pass
         except OSError as e:
-            pass
+            print(e)
 
-        numpy.save(f"{full_path}/neuron_weights.npy", self.data.neurons_weights)
-        numpy.save(f"{full_path}/output_weights.npy", self.data.output_weights)
+        numpy.save(f"{full_path_net}/neuron_weights.npy", self.data.neurons_weights)
+        numpy.save(f"{full_path_net}/output_weights.npy", self.data.output_weights)
+
+    def save_right_wrong_data(self, map_name="net"):
+        cur_dir = os.path.dirname(__file__)
+        # print(cur_dir)
+        full_path_dir = f"{cur_dir}/data/saved_nets/{map_name}"
+        full_path_rwd = f"{full_path_dir}/right_wrong_data"
+        print(full_path_rwd)
+        try:
+            try:
+                os.mkdir(full_path_dir)
+            except OSError as e:
+                pass
+            os.mkdir(full_path_rwd)
+
+            with open(f"{full_path_rwd}/right_weight.npy", "x"):
+                pass
+            with open(f"{full_path_rwd}/right_num.npy", "x"):
+                pass
+            with open(f"{full_path_rwd}/wrong_weight.npy", "x"):
+                pass
+            with open(f"{full_path_rwd}/wrong_num.npy", "x"):
+                pass
+        except OSError as e:
+            print(e)
+
+        rw, rn, ww, wn = self.compare_to_test_data()
+
+        numpy.save(f"{full_path_rwd}/right_weight.npy", rw)
+        numpy.save(f"{full_path_rwd}/right_num.npy", rn)
+        numpy.save(f"{full_path_rwd}/wrong_weight.npy", ww)
+        numpy.save(f"{full_path_rwd}/wrong_num.npy", wn)
+
+    def load_right_wrong_data(self, map_name="net"):
+        cur_dir = os.path.dirname(__file__)
+        full_path = f"{cur_dir}/data/saved_nets/{map_name}/right_wrong_data"
+
+        rw = numpy.load(f"{full_path}/right_weight.npy")
+        rn = numpy.load(f"{full_path}/right_num.npy")
+        ww = numpy.load(f"{full_path}/wrong_weight.npy")
+        wn = numpy.load(f"{full_path}/wrong_num.npy")
+
+        return rw, rn, ww, wn
 
     def load_weights(self, map_name="net"):
+        print(f"Dir: {map_name}")
+
         cur_dir = os.path.dirname(__file__)
-        full_path = f"{cur_dir}/data/saved_weights/{map_name}"
+        full_path = f"{cur_dir}/data/saved_nets/{map_name}/net"
 
         neuron_weights = numpy.load(f"{full_path}/neuron_weights.npy")
         output_weights = numpy.load(f"{full_path}/output_weights.npy")
@@ -412,11 +462,21 @@ def main():
     time_before = time.time()
 
     n = Network(neuron_layers_shape=(1, 20), neuron_bias=-35, outputs=10, output_bias=-9, norm_func_name="expit")
-    # n.load_weights("net1")
-    n.load_weights("net_20w_100_20k")
-    # n.load_weights("net_50w_3")
-    # n.load_weights("net_100w_3")
-    # data_start = copy.deepcopy(n.data)
+
+    # load_dir = "net_20w_100_10k"
+    load_dir = "net_20w_100_20k"
+    # load_dir = "net_20w_100_20k_20k_0-005lr"
+    # load_dir = "net_20w_100_20k_20k_0-01lr"
+    # load_dir = "net_20w_100_20k_60k_0-05lr"
+    # load_dir = "net_20w_100_60k"
+
+    # load_dir = "net_50w_1"
+    # load_dir = "net_75w_1"
+    # load_dir = "net_100w_1"
+
+    n.load_weights(load_dir)
+
+    # r_w = n.load_right_wrong_data(load_dir)
 
     # for _ in range(100):
     # r, w = n.compare_to_test((0, 100))
@@ -429,9 +489,9 @@ def main():
     # Generating better network doesn't matter, but might as well do it quickly
     data_points = (0, 60000)
 
-    n.compare_to_test_data(data_points)
+    # n.compare_to_test_data(data_points)
 
-    n.train(10, 500, data_points, 0.1, 100)
+    n.train(10, 3500, data_points, 0.05, 100)
     # data_end = copy.deepcopy(n.data)
 
     r, w = n.compare_to_test(data_points, False)
@@ -448,7 +508,14 @@ def main():
     # net2 - ~20?
     # net7 - 60% test, 80% training (91% on 100 first)
     # net12 - 53% test, 97% training (100), error - 0.045672393817552004
-    # n.save_weights("net_20w_100_60k")
+
+    # save_dir = "net_20w_100_20k"
+    # save_dir = "net_20w_100_20k_20k_0-005lr"
+    # save_dir = "net_20w_100_20k_20k_0-01lr"
+    save_dir = "net_20w_100_20k_60k_0-05lr"
+
+    n.save_weights(save_dir)
+    n.save_right_wrong_data(save_dir)
 
     # printing the shapes of the vectors
     # print('X_train: ' + str(train_x.shape))
