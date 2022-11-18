@@ -510,7 +510,7 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 75), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
+    n = Network(neuron_layers_shape=(1, 20), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
                 norm_func_name="expit")
 
     # load_dir = "net_20w_rb_1"
@@ -650,14 +650,18 @@ def main():
                 xx, yy = int(mx // square_side), int((my - offset_y) // square_side)
                 # print(xx, yy)
                 grid[yy, xx] = 255
-                if yy - 1 >= 0:
+                if yy - 1 >= 0 and grid[yy - 1, xx] == 0:
                     grid[yy - 1, xx] = random.randint(40, 220)
-                if yy + 1 <= grid.shape[0]:
+                    grid[yy - 1, xx] = 120
+                if yy + 1 <= grid.shape[0] and grid[yy + 1, xx] == 0:
                     grid[yy + 1, xx] = random.randint(40, 220)
-                if xx - 1 >= 0:
+                    grid[yy + 1, xx] = 120
+                if xx - 1 >= 0 and grid[yy, xx - 1] == 0:
                     grid[yy, xx - 1] = random.randint(40, 220)
-                if xx + 1 <= grid.shape[0]:
+                    grid[yy, xx - 1] = 120
+                if xx + 1 <= grid.shape[0] and grid[yy, xx + 1] == 0:
                     grid[yy, xx + 1] = random.randint(40, 220)
+                    grid[yy, xx + 1] = 120
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -670,11 +674,12 @@ def main():
                 if event.key == pygame.K_w:
                     pressed = False
             if event.type == pygame.MOUSEBUTTONDOWN:
-                pressed = True
+                # pressed = True
                 if button[0] <= mx <= button[0] + button[2] and button[1] <= my <= button[3]:
                     grid = np.zeros((28, 28), dtype=np.int64)
             if event.type == pygame.MOUSEBUTTONUP:
-                pressed = False
+                # pressed = False
+                pass
 
 
 
