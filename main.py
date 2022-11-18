@@ -508,7 +508,7 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 75), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
+    n = Network(neuron_layers_shape=(1, 20), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
                 norm_func_name="expit")
 
     # load_dir = "net_20w_rb_1"
@@ -516,23 +516,23 @@ def main():
     # load_dir = "net_20w_100_20k"                      # 50627 - 8384
     # load_dir = "net_20w_100_20k_20k_0-005lr"
     # load_dir = "net_20w_100_20k_20k_0-01lr"
-    # load_dir = "net_20w_100_20k_60k_0-02lr"           # 51550 - 8514
+    load_dir = "net_20w_100_20k_60k_0-02lr_2"         # 51550 - 8514
     # load_dir = "net_20w_100_60k"
     # load_dir = "net_20w_100_20k_test"                 # 50620 - 8388
 
     # load_dir = "net_50w_5"                            # 51154 - 8317
-    load_dir = "net_75w_7"                              # 51249 - 8402
+    # load_dir = "net_75w_8"                            # 51249 - 8402
     # load_dir = "net_100w_5"
 
     # save_dir = "net_20w_rb_1"
     # save_dir = "net_20w_100_20k"
     # save_dir = "net_20w_100_20k_20k_0-005lr"
     # save_dir = "net_20w_100_20k_20k_0-01lr"
-    # save_dir = "net_20w_100_20k_60k_0-02lr_2"
+    save_dir = "net_20w_100_20k_60k_0-02lr_10"
     # save_dir = "net_20w_100_20k_test"
 
     # save_dir = "net_50w_6"
-    save_dir = "net_75w_8"
+    # save_dir = "net_75w_last10k"
     # save_dir = "net_100w_6"
 
     n.load_weights_biases(load_dir, "weights")
