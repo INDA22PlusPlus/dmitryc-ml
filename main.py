@@ -3,6 +3,7 @@ import gzip
 import math
 import os
 import pickle
+import random
 import sys
 import time
 
@@ -10,7 +11,8 @@ import numba
 from dataclasses import dataclass
 
 import numpy as np
-from line_profiler_pycharm import profile
+# from line_profiler_pycharm import profile
+import pygame as pygame
 from numba import njit
 from scipy.special import expit
 import logging, os
@@ -508,7 +510,7 @@ def main():
 
     time_before = time.time()
 
-    n = Network(neuron_layers_shape=(1, 20), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
+    n = Network(neuron_layers_shape=(1, 75), neuron_bias=(-50, 0), outputs=10, output_bias=(-20, 0),
                 norm_func_name="expit")
 
     # load_dir = "net_20w_rb_1"
@@ -516,19 +518,19 @@ def main():
     # load_dir = "net_20w_100_20k"                      # 50627 - 8384
     # load_dir = "net_20w_100_20k_20k_0-005lr"
     # load_dir = "net_20w_100_20k_20k_0-01lr"
-    load_dir = "net_20w_100_20k_60k_0-02lr_2"         # 51550 - 8514
+    load_dir = "net_20w_100_20k_60k_0-02lr_3"         # 52300 - 8600
     # load_dir = "net_20w_100_60k"
     # load_dir = "net_20w_100_20k_test"                 # 50620 - 8388
 
     # load_dir = "net_50w_5"                            # 51154 - 8317
-    # load_dir = "net_75w_8"                            # 51249 - 8402
+    # load_dir = "net_75w_8"                            # 52254 - 8492
     # load_dir = "net_100w_5"
 
     # save_dir = "net_20w_rb_1"
     # save_dir = "net_20w_100_20k"
     # save_dir = "net_20w_100_20k_20k_0-005lr"
     # save_dir = "net_20w_100_20k_20k_0-01lr"
-    save_dir = "net_20w_100_20k_60k_0-02lr_10"
+    # save_dir = "net_20w_100_20k_60k_0-02lr_10"
     # save_dir = "net_20w_100_20k_test"
 
     # save_dir = "net_50w_6"
@@ -556,7 +558,7 @@ def main():
     # n.train(10, 1000, data_points, 0.2, 100, 100)
 
     try:
-        n.train(10, 3000, data_points, 0.005, 100, 100)
+        # n.train(10, 3000, data_points, 0.005, 100, 100)
         pass
     except:
         pass
@@ -571,7 +573,7 @@ def main():
 
         print(f"Total time: {time.time() - time_before:.2f}s")
 
-        n.save_weights_biases(save_dir, "weights")
+        # n.save_weights_biases(save_dir, "weights")
         # n.save_weights_biases(save_dir, "biases")
         # n.save_right_wrong_data(save_dir)
 
@@ -583,10 +585,110 @@ def main():
     # n.save_weights(save_dir)
     # n.save_right_wrong_data(save_dir)
 
+    rw, rn, ww, wn = n.compare_to_test_data()
+
     # for i in range(9):
-    #     pyplot.subplot(330 + 1 + i)
-    #     pyplot.imshow(train_X[i], cmap=pyplot.get_cmap('gray'))
+    #     # pyplot.subplot(100, 100)
+    #     pyplot.imshow(ww[i], cmap=pyplot.get_cmap('gray'))
+    #     pyplot.ylabel("Right")
     # pyplot.show()
+    # show = 100
+    # for image, num in zip(n.test_images[:show], n.test_numbers[:show]):
+    #     pyplot.imshow(image, cmap=pyplot.get_cmap("Blues"))
+    #     guess = n.data.compute_number(image)
+    #     pyplot.xlabel(f"Network guess: {guess}    Right: {num}")
+    #     pyplot.show()
+    # ni = 100
+    # d = [[math.inf] * ni] * ni
+
+    win_size = (600, 700)
+    offset_y = win_size[1] - win_size[0]
+    screen = pygame.display.set_mode(win_size)
+    screen.fill((100, 0, 100))
+    running = True
+    grid = np.zeros((28, 28), dtype=np.int64)
+    # grids = n.get_data_from_file()[0]
+    # print(grid)
+    # grid = grids[0].astype(np.int64)
+    # grid *= 255
+    # print(grid)
+    # grid[1, 1] = 255
+    square_side = win_size[0] / grid.shape[0]
+    pressed = False
+    button = (400, 20, 100, 50)
+    while running:
+        print(n.data.compute_number(normalize(grid.astype(np.double))))
+        screen.fill((100, 0, 100))
+        pygame.draw.rect(screen, (0, 0, 0), (0, offset_y, win_size[0], win_size[1]))
+        pygame.draw.rect(screen, (0, 100, 0), button)
+        for x in range(grid.shape[0]):
+            for y in range(grid.shape[1]):
+                if grid[y, x] > 0:
+                    pygame.draw.rect(screen,
+                                     (grid[y, x], grid[y, x], grid[y, x]),
+                                     (x * square_side, offset_y + y * square_side, square_side, square_side))
+        for y in range(1, grid.shape[0]):
+            pygame.draw.line(screen,
+                             (100, 0, 100),
+                             (0, offset_y + y * square_side),
+                             (win_size[0], offset_y + y * square_side))
+        for x in range(1, grid.shape[0]):
+            pygame.draw.line(screen,
+                             (100, 0, 100),
+                             (x * square_side, offset_y),
+                             (x * square_side, win_size[1]))
+
+        mx, my = pygame.mouse.get_pos()  # returns the position of mouse cursor
+        if 0 <= mx <= win_size[0] and offset_y <= my <= win_size[1]:
+            mx_rel, my_rel = math.floor((mx // square_side) * square_side), \
+                             math.floor(my // square_side * square_side - 6)
+            pygame.draw.rect(screen,
+                             (255, 255, 255),
+                             (mx_rel, my_rel, square_side, square_side))
+        if pressed:
+            if 0 <= mx <= win_size[0] and offset_y <= my <= win_size[1]:
+                xx, yy = int(mx // square_side), int((my - offset_y) // square_side)
+                # print(xx, yy)
+                grid[yy, xx] = 255
+                if yy - 1 >= 0:
+                    grid[yy - 1, xx] = random.randint(40, 220)
+                if yy + 1 <= grid.shape[0]:
+                    grid[yy + 1, xx] = random.randint(40, 220)
+                if xx - 1 >= 0:
+                    grid[yy, xx - 1] = random.randint(40, 220)
+                if xx + 1 <= grid.shape[0]:
+                    grid[yy, xx + 1] = random.randint(40, 220)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                break
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w:
+                    pressed = True
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_w:
+                    pressed = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pressed = True
+                if button[0] <= mx <= button[0] + button[2] and button[1] <= my <= button[3]:
+                    grid = np.zeros((28, 28), dtype=np.int64)
+            if event.type == pygame.MOUSEBUTTONUP:
+                pressed = False
+
+
+
+            #         print(mx_rel, my_rel)
+            # elif event.type == pygame.MOUSEBUTTONUP:
+            #     pressed = False
+            # elif event.type == pygame.MOUSEMOTION and pressed:
+            #     if 0 <= mx <= win_size[0] and offset_y <= my <= win_size[1]:
+            #         mx_rel, my_rel = math.floor((mx // square_side) * square_side), \
+            #                          math.floor(my // square_side * square_side - 6)
+            #         print(mx_rel, my_rel)
+        pygame.display.flip()
+
+
 
 
 if __name__ == "__main__":
